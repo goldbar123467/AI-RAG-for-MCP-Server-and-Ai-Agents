@@ -10,7 +10,7 @@ These tests verify the full learning loop:
 
 import asyncio
 import pytest
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
 
 import httpx
@@ -19,6 +19,11 @@ import httpx
 # Test configuration
 MCP_URL = "http://localhost:8000"
 TEST_TIMEOUT = 30.0
+
+
+def unique_id():
+    """Generate a unique ID for test content to avoid duplicates."""
+    return str(uuid4())[:8]
 
 
 @pytest.fixture
@@ -38,13 +43,16 @@ async def test_health(client):
 @pytest.mark.asyncio
 async def test_remember_and_recall(client):
     """Test storing and retrieving a memory."""
-    # Store a memory
+    uid = unique_id()
+    # Store a memory with unique content based on timestamp
+    content = f"Test memory {uid}: When working with GraphQL resolvers, always use DataLoader to batch database queries and prevent N+1 problems. This pattern is essential for performance."
+
     remember_response = await client.post(
         "/remember",
         json={
-            "content": "Python's asyncio library uses an event loop to handle concurrent operations efficiently. Always use async/await syntax for non-blocking I/O.",
+            "content": content,
             "category": "pattern",
-            "tags": ["python", "async", "concurrency"],
+            "tags": ["graphql", "dataloader", uid],
             "source": "human",
             "project": "test",
         }
@@ -53,17 +61,17 @@ async def test_remember_and_recall(client):
     result = remember_response.json()
 
     # Should be accepted
-    assert result["rejected"] == False
+    assert result["rejected"] == False, f"Memory rejected: {result.get('reason')} (uid={uid})"
     assert "memory_id" in result
     assert result["quality_score"] > 0
 
     memory_id = result["memory_id"]
 
-    # Recall the memory
+    # Recall the memory using the unique tag
     recall_response = await client.post(
         "/recall",
         json={
-            "query": "How do I use async in Python?",
+            "query": f"GraphQL DataLoader {uid}",
             "limit": 5,
         }
     )
@@ -100,18 +108,21 @@ async def test_quality_rejection(client):
 @pytest.mark.asyncio
 async def test_feedback(client):
     """Test providing feedback on a memory."""
-    # First store a memory
+    uid = unique_id()
+    # First store a memory with unique content
+    content = f"Test feedback {uid}: Redis cache invalidation should happen atomically with database writes to prevent stale data. Use transaction pipelines for this."
+
     remember_response = await client.post(
         "/remember",
         json={
-            "content": "When debugging async code, use asyncio.run() in the main entry point and asyncio.create_task() for concurrent operations.",
+            "content": content,
             "category": "pattern",
-            "tags": ["python", "debugging"],
+            "tags": ["redis", "caching", uid],
             "source": "human",
         }
     )
     result = remember_response.json()
-    assert not result["rejected"]
+    assert not result["rejected"], f"Memory rejected: {result.get('reason')} (uid={uid})"
     memory_id = result["memory_id"]
 
     # Provide positive feedback
@@ -120,7 +131,7 @@ async def test_feedback(client):
         json={
             "memory_id": memory_id,
             "helpful": True,
-            "context": "This helped me fix my async issue",
+            "context": "This helped me fix my caching issue",
         }
     )
     assert feedback_response.status_code == 200
@@ -130,17 +141,21 @@ async def test_feedback(client):
 @pytest.mark.asyncio
 async def test_forget(client):
     """Test marking a memory for deletion."""
-    # Store a memory
+    uid = unique_id()
+    # Store a memory with unique content
+    content = f"Test forget {uid}: Kubernetes pod autoscaling should be configured based on CPU and memory metrics. Use HPA for horizontal scaling."
+
     remember_response = await client.post(
         "/remember",
         json={
-            "content": "This is a test memory that should be deleted. It contains specific test patterns for verification.",
+            "content": content,
             "category": "other",
+            "tags": ["kubernetes", uid],
             "source": "human",
         }
     )
     result = remember_response.json()
-    assert not result["rejected"]
+    assert not result["rejected"], f"Memory rejected: {result.get('reason')} (uid={uid})"
     memory_id = result["memory_id"]
 
     # Mark for deletion
@@ -182,18 +197,21 @@ async def test_concepts(client):
 @pytest.mark.asyncio
 async def test_duplicate_detection(client):
     """Test that near-duplicates are detected."""
-    content = "SQLAlchemy's async session should be used with async with for proper resource cleanup. This is a best practice for database connections."
+    uid = unique_id()
+    # Use very unique content unlikely to match anything else
+    content = f"Duplicate test {uid}: Terraform state files should be stored in S3 with DynamoDB locking enabled for team collaboration and conflict prevention."
 
     # Store first memory
     response1 = await client.post(
         "/remember",
         json={
             "content": content,
+            "tags": ["terraform", uid],
             "source": "human",
         }
     )
     result1 = response1.json()
-    assert not result1["rejected"]
+    assert not result1["rejected"], f"First memory rejected: {result1.get('reason')} (uid={uid})"
 
     # Try to store nearly identical content
     response2 = await client.post(
@@ -213,12 +231,17 @@ async def test_duplicate_detection(client):
 @pytest.mark.asyncio
 async def test_project_filtering(client):
     """Test recall filtering by project."""
-    # Store memories in different projects
+    uid = unique_id()
+    # Store memories in different projects with unique content
+    frontend_content = f"Project filter test {uid}: Vue.js composition API provides better TypeScript support than the options API. Use ref() and reactive() for state management."
+    backend_content = f"Project filter test {uid}: FastAPI dependency injection system allows clean separation of concerns. Use Depends() for reusable components."
+
     await client.post(
         "/remember",
         json={
-            "content": "This is a frontend pattern for React components. Always use functional components with hooks.",
-            "project": "frontend",
+            "content": frontend_content,
+            "project": f"frontend-{uid}",
+            "tags": ["vue", uid],
             "source": "human",
         }
     )
@@ -226,8 +249,9 @@ async def test_project_filtering(client):
     await client.post(
         "/remember",
         json={
-            "content": "This is a backend pattern for API design. Use REST conventions with proper status codes.",
-            "project": "backend",
+            "content": backend_content,
+            "project": f"backend-{uid}",
+            "tags": ["fastapi", uid],
             "source": "human",
         }
     )
@@ -236,8 +260,8 @@ async def test_project_filtering(client):
     response = await client.post(
         "/recall",
         json={
-            "query": "patterns",
-            "project": "frontend",
+            "query": f"Vue composition API {uid}",
+            "project": f"frontend-{uid}",
             "limit": 10,
         }
     )
@@ -246,30 +270,42 @@ async def test_project_filtering(client):
     # Should only get frontend memories
     for memory in memories:
         if memory["project"]:
-            assert memory["project"] == "frontend"
+            assert memory["project"] == f"frontend-{uid}"
 
 
 @pytest.mark.asyncio
 async def test_ranking_factors(client):
     """Test that ranking considers multiple factors."""
-    # Store high-quality memory with code
+    uid = unique_id()
+    # Store high-quality memory with code - unique topic
+    content = f"""
+    Ranking test {uid}: To implement JWT refresh token rotation in Express.js:
+
+    ```javascript
+    const refreshTokens = new Map();
+
+    app.post('/refresh', async (req, res) => {{
+        const {{ refreshToken }} = req.body;
+        if (!refreshTokens.has(refreshToken)) {{
+            return res.status(401).json({{ error: 'Invalid token' }});
+        }}
+        const newAccessToken = generateAccessToken(user);
+        const newRefreshToken = generateRefreshToken();
+        refreshTokens.delete(refreshToken);
+        refreshTokens.set(newRefreshToken, user.id);
+        res.json({{ accessToken: newAccessToken, refreshToken: newRefreshToken }});
+    }});
+    ```
+
+    This prevents token reuse attacks and improves security significantly.
+    """
+
     await client.post(
         "/remember",
         json={
-            "content": """
-            To optimize database queries in SQLAlchemy, use eager loading:
-
-            ```python
-            from sqlalchemy.orm import selectinload
-
-            query = select(User).options(selectinload(User.posts))
-            result = await session.execute(query)
-            ```
-
-            This prevents N+1 query problems and improves performance significantly.
-            """,
+            "content": content,
             "category": "pattern",
-            "tags": ["sqlalchemy", "performance", "optimization"],
+            "tags": ["jwt", "security", uid],
             "source": "human",
         }
     )
@@ -278,7 +314,7 @@ async def test_ranking_factors(client):
     response = await client.post(
         "/recall",
         json={
-            "query": "How to optimize SQLAlchemy queries?",
+            "query": f"JWT refresh token rotation Express {uid}",
             "limit": 5,
         }
     )
