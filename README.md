@@ -1,14 +1,16 @@
 # RAG Brain
 
-A self-improving memory system for AI agents. Store knowledge, retrieve it semantically, and watch the system learn what "good" memories look like.
+AI agents forget everything between sessions. Your coding assistant solves the same problems repeatedly, re-learns your preferences, and loses context the moment you close the terminal. RAG Brain fixes this. It's a persistent memory layer that any agent can write to and read from—storing decisions, patterns, bug fixes, and lessons learned. But unlike a simple database, it actively learns what makes a memory useful. Bad inputs get rejected. Good memories rise to the top. Every 500 memories, the system retrains itself based on what actually helped you. Over time, you build a second brain that understands your codebase, your patterns, and your preferences.
 
-## Start Here
+## Install
 
 ```bash
+git clone https://github.com/goldbar123467/AI-RAG-for-MCP-Server-and-Ai-Agents.git
+cd AI-RAG-for-MCP-Server-and-Ai-Agents
 docker-compose up
 ```
 
-That's it. Wait for all containers to show healthy, then you have a working memory system.
+Wait for all containers to show healthy. That's it—you have a working memory system.
 
 **Test it:**
 ```bash
