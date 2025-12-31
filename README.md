@@ -41,7 +41,8 @@ This isn't a notepad. It's a **learning system**:
 - **PostgreSQL + pgvector** - Vector storage and similarity search
 - **Ollama + nomic-embed-text** - Local embeddings (768 dimensions, free)
 - **XGBoost** - Quality prediction model
-- **FastAPI** - MCP REST server
+- **FastAPI** - REST API server
+- **MCP Protocol** - Claude Code integration
 - **SQLAlchemy** - Async database ORM
 
 ## Quick Start
@@ -64,9 +65,59 @@ docker compose logs -f ollama
 python -m pytest tests/ -v
 ```
 
-### API Endpoints
+## Claude Code Integration (MCP)
 
-The MCP server runs on `http://localhost:8000`:
+RAG Brain includes an MCP (Model Context Protocol) server that integrates directly with Claude Code, allowing natural language interaction with your memory system.
+
+### Setup
+
+1. **Create a virtual environment and install dependencies:**
+```bash
+cd rag-brain
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+```
+
+2. **Add to Claude Code settings** (`~/.claude/settings.json`):
+```json
+{
+  "mcpServers": {
+    "rag-brain": {
+      "command": "/path/to/rag-brain/.venv/bin/python",
+      "args": ["-m", "src.mcp_server"],
+      "cwd": "/path/to/rag-brain"
+    }
+  }
+}
+```
+
+3. **Restart Claude Code** to load the MCP server.
+
+### MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `remember` | Store a memory with automatic quality gating |
+| `recall` | Search memories with semantic ranking |
+| `feedback` | Mark a memory as helpful/not helpful |
+| `forget` | Mark a memory for deletion |
+| `stats` | Get system statistics |
+| `concepts` | List emerged concept clusters |
+
+### Natural Language Usage
+
+Once configured, you can interact naturally:
+
+- **"Remember this: When using PostgreSQL with pgvector, always create an IVFFlat index for better performance"**
+- **"What do I know about database optimization?"**
+- **"That last memory was really helpful"**
+- **"Show me my brain stats"**
+- **"Forget memory [uuid]"**
+
+## REST API
+
+The REST API runs on `http://localhost:8000`:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -169,13 +220,14 @@ rag-brain/
 │   ├── librarian/       # Read path agent
 │   ├── trainer/         # ML training agent
 │   ├── janitor/         # Maintenance agent
-│   └── shared/          # Common utilities
-│       ├── config.py    # Settings management
-│       ├── database.py  # SQLAlchemy models
-│       ├── embeddings.py# Ollama integration
-│       └── features.py  # Feature extraction
-├── mcp/
-│   └── server.py        # FastAPI MCP server
+│   ├── shared/          # Common utilities
+│   │   ├── config.py    # Settings management
+│   │   ├── database.py  # SQLAlchemy models
+│   │   ├── embeddings.py# Ollama integration
+│   │   └── features.py  # Feature extraction
+│   └── mcp_server.py    # MCP protocol server for Claude Code
+├── mcp_rest/
+│   └── server.py        # FastAPI REST server
 ├── migrations/
 │   └── 001_initial_schema.sql
 ├── tests/
