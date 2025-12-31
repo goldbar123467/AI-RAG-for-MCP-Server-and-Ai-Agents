@@ -1,3 +1,14 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/RAG-Brain-6366f1?style=for-the-badge" alt="RAG Brain" height="50"/>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"/>
+  <img src="https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square" alt="Python"/>
+  <img src="https://img.shields.io/badge/docker-ready-2496ED.svg?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-pgvector-336791.svg?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
+</p>
+
 ---
 
 AI agents forget everything between sessions. Your coding assistant solves the same problems repeatedly, relearns your preferences, and loses context the moment you close the terminal.
@@ -324,7 +335,7 @@ CREATE INDEX ON memory_events (memory_id, event_type);
 
 ## Embedding Model
 
-**Model:** nomic-embed-text via Ollama
+**Model:** nomic-embed-text via Ollama  
 **Dimensions:** 768
 
 Why this model:
@@ -438,17 +449,17 @@ rag-brain/
 
 ## Troubleshooting
 
-**Ollama slow to start:**
+**Ollama slow to start:**  
 First run downloads ~1GB model. Check: `docker-compose logs -f ollama`
 
-**Memories rejected unexpectedly:**
+**Memories rejected unexpectedly:**  
 Quality threshold might be too high. Check `/stats` endpoint, lower `MIN_QUALITY_THRESHOLD` if needed.
 
-**No results from recall:**
+**No results from recall:**  
 Memories might be quarantined. Check `/stats` for tier counts. Review quarantine threshold.
 
-**Agents not starting:**
-Check Agent Mail is healthy: `curl http://localhost:8766/health`
+**Agents not starting:**  
+Check Agent Mail is healthy: `curl http://localhost:8765/health`
 
 ## License
 
