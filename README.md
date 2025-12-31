@@ -459,7 +459,7 @@ Quality threshold might be too high. Check `/stats` endpoint, lower `MIN_QUALITY
 Memories might be quarantined. Check `/stats` for tier counts. Review quarantine threshold.
 
 **Agents not starting:**  
-Check Agent Mail is healthy: `curl http://localhost:8765/health`
+Check Agent Mail is healthy: `curl http://localhost:8766/health`
 
 ## License
 
