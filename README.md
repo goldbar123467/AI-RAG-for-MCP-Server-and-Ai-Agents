@@ -1,3 +1,7 @@
+# RAG Brain
+<p align="center">
+  <img src="https://img.shields.io/badge/RAG-Brain-6366f1?style=for-the-badge" alt="RAG Brain" height="50"/>
+</p>
 <p align="center">
   <img src="https://img.shields.io/badge/RAG-Brain-6366f1?style=for-the-badge" alt="RAG Brain" height="50"/>
 </p>
