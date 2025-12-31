@@ -1,18 +1,3 @@
-# Hickup v1
-<p align="center">
-  <img src="https://img.shields.io/badge/RAG-Brain-6366f1?style=for-the-badge" alt="RAG Brain" height="50"/>
-</p>
-<p align="center">
-  <img src="https://img.shields.io/badge/RAG-Brain-6366f1?style=for-the-badge" alt="RAG Brain" height="50"/>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"/>
-  <img src="https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square" alt="Python"/>
-  <img src="https://img.shields.io/badge/docker-ready-2496ED.svg?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
-  <img src="https://img.shields.io/badge/PostgreSQL-pgvector-336791.svg?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
-</p>
-
 ---
 
 AI agents forget everything between sessions. Your coding assistant solves the same problems repeatedly, relearns your preferences, and loses context the moment you close the terminal.
