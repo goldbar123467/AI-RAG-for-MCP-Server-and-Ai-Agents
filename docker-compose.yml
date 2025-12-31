@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: rag-brain-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ragbrain
+      POSTGRES_DB: workbench
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Ollama for embeddings
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-brain-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Pull nomic-embed-text on startup
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        /bin/ollama serve &
+        sleep 5
+        ollama pull nomic-embed-text
+        wait
+
+  # Gatekeeper Agent
+  gatekeeper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-brain-gatekeeper
+    command: python -m src.gatekeeper.agent
+    environment:
+      POSTGRES_URL: postgresql+asyncpg://postgres:ragbrain@postgres:5432/workbench
+      OLLAMA_URL: http://ollama:11434
+      AGENT_MAIL_URL: http://agent-mail:8765
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+  # Librarian Agent
+  librarian:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-brain-librarian
+    command: python -m src.librarian.agent
+    environment:
+      POSTGRES_URL: postgresql+asyncpg://postgres:ragbrain@postgres:5432/workbench
+      OLLAMA_URL: http://ollama:11434
+      AGENT_MAIL_URL: http://agent-mail:8765
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+  # Trainer Agent
+  trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-brain-trainer
+    command: python -m src.trainer.agent
+    environment:
+      POSTGRES_URL: postgresql+asyncpg://postgres:ragbrain@postgres:5432/workbench
+      OLLAMA_URL: http://ollama:11434
+      AGENT_MAIL_URL: http://agent-mail:8765
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Janitor Agent
+  janitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-brain-janitor
+    command: python -m src.janitor.agent
+    environment:
+      POSTGRES_URL: postgresql+asyncpg://postgres:ragbrain@postgres:5432/workbench
+      OLLAMA_URL: http://ollama:11434
+      AGENT_MAIL_URL: http://agent-mail:8765
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # MCP REST Server
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-brain-mcp
+    command: python -m mcp.server
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_URL: postgresql+asyncpg://postgres:ragbrain@postgres:5432/workbench
+      OLLAMA_URL: http://ollama:11434
+      AGENT_MAIL_URL: http://agent-mail:8765
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ollama_data:
