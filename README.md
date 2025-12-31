@@ -1,6 +1,19 @@
-# RAG Brain
+<p align="center">
+  <img src="https://img.shields.io/badge/RAG-Brain-6366f1?style=for-the-badge" alt="RAG Brain" height="50"/>
+</p>
 
-AI agents forget everything between sessions. Your coding assistant solves the same problems repeatedly, re-learns your preferences, and loses context the moment you close the terminal. RAG Brain fixes this. It's a persistent memory layer that any agent can write to and read from—storing decisions, patterns, bug fixes, and lessons learned. But unlike a simple database, it actively learns what makes a memory useful. Bad inputs get rejected. Good memories rise to the top. Every 500 memories, the system retrains itself based on what actually helped you. Over time, you build a second brain that understands your codebase, your patterns, and your preferences.
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"/>
+  <img src="https://img.shields.io/badge/python-3.11+-blue.svg?style=flat-square" alt="Python"/>
+  <img src="https://img.shields.io/badge/docker-ready-2496ED.svg?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-pgvector-336791.svg?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
+</p>
+
+---
+
+AI agents forget everything between sessions. Your coding assistant solves the same problems repeatedly, relearns your preferences, and loses context the moment you close the terminal.
+
+RAG Brain is a persistent memory layer that any agent can write to and read from. Decisions, patterns, bug fixes, lessons learned. But it's not just storage. It learns what makes a memory useful. Bad inputs get rejected. Good memories surface first. Every 500 memories, the system retrains itself based on what actually helped you.
 
 ## Install
 
@@ -10,7 +23,7 @@ cd AI-RAG-for-MCP-Server-and-Ai-Agents
 docker-compose up
 ```
 
-Wait for all containers to show healthy. That's it—you have a working memory system.
+Wait for healthy containers. Done.
 
 **Test it:**
 ```bash
@@ -61,14 +74,14 @@ Then talk naturally: "Remember this: always validate user input before database 
 
 ## Why This Exists
 
-Most memory systems are dumb storage. You put things in, you get things out. The quality of retrieval depends entirely on the quality of what you stored.
+Most memory systems are dumb storage. You put things in, you get things out. Retrieval quality depends entirely on what you stored.
 
-RAG Brain is different. It learns what makes a memory useful by tracking:
+RAG Brain tracks:
 - Which memories get retrieved
 - Which ones users mark as helpful
 - Which ones solve problems
 
-Every 500 memories, the system retrains its quality model. Bad memories get quarantined. Good memories rise to the top. The gate gets smarter over time.
+Every 500 memories, the system retrains its quality model. Bad memories get quarantined. Good memories rise. The gate gets smarter over time.
 
 ## System Architecture
 
@@ -123,7 +136,7 @@ Every memory request hits Gatekeeper first. It decides if the memory is worth ke
 - Embedding statistics (mean, std dev of vector)
 
 **Quality Prediction:**
-Gatekeeper runs features through an XGBoost classifier. The model outputs a score 0-1. Below threshold (default 0.3) = rejected.
+Gatekeeper runs features through an XGBoost classifier. The model outputs a score 0-1. Below threshold (default 0.3) means rejected.
 
 **Duplicate Detection:**
 Before insert, Gatekeeper searches for existing memories with cosine similarity > 0.95. If found, rejects as duplicate or merges.
@@ -187,7 +200,7 @@ XGBClassifier(
 80/20 train/validation split. Computes accuracy, precision, recall, F1, AUC-ROC.
 
 **Promotion Criteria:**
-New model must improve F1 by ≥ 0.01 without dropping AUC by > 0.02. Otherwise, keep old model.
+New model must improve F1 by at least 0.01 without dropping AUC by more than 0.02. Otherwise, keep old model.
 
 **On Promotion:**
 1. Serialize model to database
@@ -217,7 +230,7 @@ Iterate all memories in batches of 100. Extract features, run new model, update 
 
 ## Agent Mail (Coordination)
 
-Agents communicate through a simple message queue. No external dependencies—runs as part of docker-compose.
+Agents communicate through a simple message queue. No external dependencies. Runs as part of docker-compose.
 
 **Message Types:**
 
@@ -324,7 +337,8 @@ CREATE INDEX ON memory_events (memory_id, event_type);
 
 **Model:** nomic-embed-text via Ollama
 **Dimensions:** 768
-**Why this model:**
+
+Why this model:
 - Runs locally (no API costs)
 - Good performance on retrieval benchmarks
 - Small enough for CPU inference
@@ -431,7 +445,7 @@ rag-brain/
 
 **Month 6:** System has learned your style. Knows that your manual inputs are trustworthy, that code with context beats naked snippets, that certain agents produce better memories than others.
 
-**Year 1:** A second brain that genuinely understands your work.
+**Year 1:** You have a brain that actually knows your work.
 
 ## Troubleshooting
 
