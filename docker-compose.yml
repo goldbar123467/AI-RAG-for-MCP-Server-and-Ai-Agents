@@ -43,6 +43,28 @@ services:
         sleep 5
         ollama pull nomic-embed-text
         wait
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags | grep -q nomic-embed-text"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+  # Agent Mail - inter-agent communication
+  agent-mail:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-brain-agent-mail
+    command: python -m src.agent_mail_server.server
+    ports:
+      - "8765:8765"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
 
   # Gatekeeper Agent
   gatekeeper:
@@ -59,7 +81,9 @@ services:
       postgres:
         condition: service_healthy
       ollama:
-        condition: service_started
+        condition: service_healthy
+      agent-mail:
+        condition: service_healthy
     restart: unless-stopped
 
   # Librarian Agent
@@ -77,7 +101,9 @@ services:
       postgres:
         condition: service_healthy
       ollama:
-        condition: service_started
+        condition: service_healthy
+      agent-mail:
+        condition: service_healthy
     restart: unless-stopped
 
   # Trainer Agent
@@ -93,6 +119,8 @@ services:
       AGENT_MAIL_URL: http://agent-mail:8765
     depends_on:
       postgres:
+        condition: service_healthy
+      agent-mail:
         condition: service_healthy
     restart: unless-stopped
 
@@ -110,6 +138,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      agent-mail:
+        condition: service_healthy
     restart: unless-stopped
 
   # MCP REST Server
@@ -118,7 +148,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: rag-brain-mcp
-    command: python -m mcp_rest.server
+    command: python -m uvicorn mcp_rest.server:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     environment:
@@ -129,7 +159,9 @@ services:
       postgres:
         condition: service_healthy
       ollama:
-        condition: service_started
+        condition: service_healthy
+      agent-mail:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

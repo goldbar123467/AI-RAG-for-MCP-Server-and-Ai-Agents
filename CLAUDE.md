@@ -168,6 +168,20 @@ MIN_QUALITY_THRESHOLD defaulting to 0.3 for retrieval filtering.
 
 ## Getting Started
 
-Start the infrastructure with docker compose up. Run migrations to create the schema. Start each agent as a separate process or container. Register the MCP server with Claude Code. Start remembering things.
+One command brings up the entire system:
+
+```bash
+docker-compose up
+```
+
+This starts PostgreSQL with pgvector, Ollama with the embedding model, Agent Mail for coordination, all four agents, and the MCP REST server. Healthchecks ensure proper startup order. The system is ready when all containers are healthy.
+
+The MCP REST server runs on port 8000. Test it:
+
+```bash
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/remember -H "Content-Type: application/json" -d '{"content": "test memory"}'
+curl -X POST http://localhost:8000/recall -H "Content-Type: application/json" -d '{"query": "test"}'
+```
 
 The first 500 memories run with a baseline heuristic model. After that first training cycle, the real learning begins.

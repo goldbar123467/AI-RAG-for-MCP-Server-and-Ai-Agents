@@ -1,85 +1,44 @@
 # RAG Brain
 
-A self-improving memory system that acts as a shared brain across all your projects. Every decision, bug fix, pattern, and outcome gets stored, graded, and retrievable by any agent or application.
+A self-improving memory system for AI agents. Store knowledge, retrieve it semantically, and watch the system learn what "good" memories look like.
 
-## What Makes This Different
-
-This isn't a notepad. It's a **learning system**:
-
-- **Quality Gating**: Bad inputs get rejected automatically using ML-based quality prediction
-- **Feedback Loop**: The system learns from explicit feedback (helpful/not helpful) and implicit signals (retrieval frequency)
-- **Self-Training**: Every 500 memories, the system retrains its quality model
-- **Tier Management**: Memories rise and fall through tiers based on proven usefulness
-
-## Architecture
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Gatekeeper │     │  Librarian  │     │   Trainer   │     │   Janitor   │
-│  (writes)   │────▶│  (reads)    │────▶│  (learning) │────▶│  (maintenance)
-└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
-       │                   │                   │                   │
-       └───────────────────┴───────────────────┴───────────────────┘
-                                    │
-                           ┌───────────────┐
-                           │  PostgreSQL   │
-                           │  + pgvector   │
-                           └───────────────┘
-```
-
-### The Four Agents
-
-| Agent | Responsibility |
-|-------|----------------|
-| **Gatekeeper** | Owns the write path. Extracts features, predicts quality, rejects bad inputs, detects duplicates, generates embeddings |
-| **Librarian** | Owns the read path. Semantic search with composite ranking, feedback collection, memory linking |
-| **Trainer** | ML lifecycle. Trains XGBoost models on accumulated feedback, promotes models that improve metrics |
-| **Janitor** | Maintenance. Rescores memories with new models, manages tier promotions/demotions, cleanup |
-
-## Technology Stack
-
-- **PostgreSQL + pgvector** - Vector storage and similarity search
-- **Ollama + nomic-embed-text** - Local embeddings (768 dimensions, free)
-- **XGBoost** - Quality prediction model
-- **FastAPI** - REST API server
-- **MCP Protocol** - Claude Code integration
-- **SQLAlchemy** - Async database ORM
-
-## Quick Start
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Python 3.11+
-
-### Start the System
+## Start Here
 
 ```bash
-# Start all services
-docker compose up -d
-
-# Wait for initialization (Ollama pulls the embedding model on first run)
-docker compose logs -f ollama
-
-# Run tests to verify everything works
-python -m pytest tests/ -v
+docker-compose up
 ```
 
-## Claude Code Integration (MCP)
+That's it. Wait for all containers to show healthy, then you have a working memory system.
 
-RAG Brain includes an MCP (Model Context Protocol) server that integrates directly with Claude Code, allowing natural language interaction with your memory system.
-
-### Setup
-
-1. **Create a virtual environment and install dependencies:**
+**Test it:**
 ```bash
-cd rag-brain
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-pip install -r requirements.txt
+# Store a memory
+curl -X POST http://localhost:8000/remember \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Always use connection pooling with PostgreSQL in production"}'
+
+# Retrieve memories
+curl -X POST http://localhost:8000/recall \
+  -H "Content-Type: application/json" \
+  -d '{"query": "database best practices"}'
 ```
 
-2. **Add to Claude Code settings** (`~/.claude/settings.json`):
+## What You Get
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/remember` | POST | Store a memory |
+| `/recall` | POST | Search memories semantically |
+| `/feedback` | POST | Mark memory as helpful/not helpful |
+| `/stats` | GET | System statistics |
+| `/concepts` | GET | Emerged topic clusters |
+| `/forget` | POST | Mark for deletion |
+| `/health` | GET | Health check |
+
+## Claude Code Integration
+
+Add to `~/.claude/settings.json`:
+
 ```json
 {
   "mcpServers": {
@@ -92,123 +51,335 @@ pip install -r requirements.txt
 }
 ```
 
-3. **Restart Claude Code** to load the MCP server.
+Then talk naturally: "Remember this: always validate user input before database queries" or "What do I know about security?"
 
-### MCP Tools
+---
 
-| Tool | Description |
-|------|-------------|
-| `remember` | Store a memory with automatic quality gating |
-| `recall` | Search memories with semantic ranking |
-| `feedback` | Mark a memory as helpful/not helpful |
-| `forget` | Mark a memory for deletion |
-| `stats` | Get system statistics |
-| `concepts` | List emerged concept clusters |
+# Technical Deep Dive
 
-### Natural Language Usage
+## Why This Exists
 
-Once configured, you can interact naturally:
+Most memory systems are dumb storage. You put things in, you get things out. The quality of retrieval depends entirely on the quality of what you stored.
 
-- **"Remember this: When using PostgreSQL with pgvector, always create an IVFFlat index for better performance"**
-- **"What do I know about database optimization?"**
-- **"That last memory was really helpful"**
-- **"Show me my brain stats"**
-- **"Forget memory [uuid]"**
+RAG Brain is different. It learns what makes a memory useful by tracking:
+- Which memories get retrieved
+- Which ones users mark as helpful
+- Which ones solve problems
 
-## REST API
+Every 500 memories, the system retrains its quality model. Bad memories get quarantined. Good memories rise to the top. The gate gets smarter over time.
 
-The REST API runs on `http://localhost:8000`:
+## System Architecture
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/remember` | POST | Store a new memory |
-| `/recall` | POST | Retrieve relevant memories |
-| `/feedback` | POST | Record helpful/not helpful feedback |
-| `/concepts` | GET | List emerged concept clusters |
-| `/forget` | POST | Mark a memory for deletion |
-| `/stats` | GET | System statistics |
-| `/health` | GET | Health check |
-
-### Example Usage
-
-**Store a memory:**
-```bash
-curl -X POST http://localhost:8000/remember \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content": "When debugging async Python code, always check if you forgot to await a coroutine. The error messages can be misleading.",
-    "category": "pattern",
-    "tags": ["python", "async", "debugging"],
-    "source": "human",
-    "project": "my-project"
-  }'
+```
+                                 docker-compose up
+                                        │
+        ┌───────────────────────────────┼───────────────────────────────┐
+        │                               │                               │
+        ▼                               ▼                               ▼
+   ┌─────────┐                   ┌─────────────┐                 ┌──────────┐
+   │PostgreSQL│                   │   Ollama    │                 │Agent Mail│
+   │+pgvector │                   │nomic-embed  │                 │ (router) │
+   └────┬─────┘                   └──────┬──────┘                 └────┬─────┘
+        │                                │                              │
+        │    ┌───────────────────────────┼──────────────────────────────┤
+        │    │                           │                              │
+        │    ▼                           ▼                              ▼
+        │ ┌──────────┐  messages  ┌──────────┐  messages  ┌──────────┐
+        │ │Gatekeeper│───────────▶│Librarian │───────────▶│ Trainer  │
+        │ │ (write)  │            │ (read)   │            │  (ML)    │
+        │ └────┬─────┘            └────┬─────┘            └────┬─────┘
+        │      │                       │                       │
+        │      │                       │                       │ messages
+        │      │                       │                       ▼
+        │      │                       │               ┌──────────┐
+        │      │                       │               │ Janitor  │
+        │      │                       │               │(maintain)│
+        │      │                       │               └────┬─────┘
+        │      │                       │                    │
+        └──────┴───────────────────────┴────────────────────┘
+                              │
+                              ▼
+                       ┌────────────┐
+                       │ MCP Server │ ◀── Claude Code / REST API
+                       │  :8000     │
+                       └────────────┘
 ```
 
-**Retrieve memories:**
-```bash
-curl -X POST http://localhost:8000/recall \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "how to debug async code",
-    "limit": 5
-  }'
+## The Four Agents
+
+### Gatekeeper (Write Path)
+
+Every memory request hits Gatekeeper first. It decides if the memory is worth keeping.
+
+**Feature Extraction:**
+- Content length and word count
+- Unique word ratio (vocabulary richness)
+- Presence of numbers (specificity signal)
+- Presence of code blocks
+- Reasoning words ("because", "therefore", "since")
+- Source trust level (human > agent > unknown)
+- Embedding statistics (mean, std dev of vector)
+
+**Quality Prediction:**
+Gatekeeper runs features through an XGBoost classifier. The model outputs a score 0-1. Below threshold (default 0.3) = rejected.
+
+**Duplicate Detection:**
+Before insert, Gatekeeper searches for existing memories with cosine similarity > 0.95. If found, rejects as duplicate or merges.
+
+**On Accept:**
+1. Generate 768-dim embedding via Ollama
+2. Assign tier (active by default)
+3. Insert to PostgreSQL
+4. Increment training counter
+5. Notify Librarian to find related memories
+
+### Librarian (Read Path)
+
+Handles all recall requests and manages relationships between memories.
+
+**Composite Ranking:**
+```
+score = (0.40 × similarity) +
+        (0.25 × predicted_quality) +
+        (0.25 × usefulness_score) +
+        (0.10 × recency_score)
 ```
 
-**Provide feedback:**
-```bash
-curl -X POST http://localhost:8000/feedback \
-  -H "Content-Type: application/json" \
-  -d '{
-    "memory_id": "uuid-from-recall",
-    "helpful": true,
-    "context": "Exactly what I needed"
-  }'
+- **Similarity**: Cosine distance from query embedding to memory embedding
+- **Predicted Quality**: XGBoost model's prediction for this memory
+- **Usefulness Score**: Rolling average from explicit feedback
+- **Recency Score**: Decay function, newer = higher
+
+**Memory Linking:**
+After Gatekeeper inserts a memory, Librarian:
+1. Finds top 10 similar existing memories
+2. Creates relationship links (supports, contradicts, extends, related)
+3. If contradiction detected, flags both for review
+
+**Concept Emergence:**
+When multiple memories cluster semantically, Librarian creates a concept entry. This enables queries like "show me everything about rate limiting."
+
+**Event Logging:**
+Every retrieval logs an event. This implicit signal (memory was relevant enough to return) feeds into training.
+
+### Trainer (ML Lifecycle)
+
+Watches the training counter. At 500 memories, training triggers.
+
+**Training Data Selection:**
+- Memories with explicit feedback (helpful/not helpful marks)
+- Memories with clear usage trends (retrieved often vs never)
+- Excludes memories < 24 hours old (signals need time to settle)
+
+**Model Training:**
+```python
+XGBClassifier(
+    n_estimators=100,
+    max_depth=6,
+    learning_rate=0.1,
+    objective='binary:logistic',
+    eval_metric='auc'
+)
 ```
 
-## Memory Ranking
+80/20 train/validation split. Computes accuracy, precision, recall, F1, AUC-ROC.
 
-Results are ranked using a composite score:
+**Promotion Criteria:**
+New model must improve F1 by ≥ 0.01 without dropping AUC by > 0.02. Otherwise, keep old model.
 
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Vector Similarity | 40% | Semantic match to query |
-| Predicted Quality | 25% | ML model's quality prediction |
-| Proven Usefulness | 25% | Historical helpfulness from feedback |
-| Recency | 10% | Newer memories get slight boost |
+**On Promotion:**
+1. Serialize model to database
+2. Mark as active
+3. Notify Janitor to rescore everything
 
-## Memory Tiers
+### Janitor (Maintenance)
 
-| Tier | Criteria | Behavior |
-|------|----------|----------|
-| **Core** | Quality > 0.8, usefulness > 0.6, accessed 3+ times | Always included in search |
-| **Active** | Default tier for accepted memories | Normal search inclusion |
-| **Archive** | Not accessed in 90+ days | Included but ranked lower |
-| **Quarantine** | Quality < 0.3 or usefulness < 0.3 | Excluded from search |
+Runs batch operations to keep the system healthy.
 
-## Configuration
+**Rescore (triggered by model promotion):**
+Iterate all memories in batches of 100. Extract features, run new model, update predicted_quality column.
 
-Environment variables (set in `.env` or docker-compose):
+**Tier Management:**
+
+| From | To | Criteria |
+|------|----|----------|
+| Active | Core | quality > 0.8 AND usefulness > 0.6 AND accesses > 3 |
+| Active | Quarantine | quality < 0.3 AND usefulness < 0.3 |
+| Core | Active | quality < 0.5 OR usefulness < 0.4 |
+| Active | Archive | No access in 90 days |
+| Quarantine | Delete | Quarantined 30+ days, no score improvement |
+
+**Daily Cleanup:**
+- Flag stale quarantined memories for deletion
+- Send summary to monitoring (counts of promotions, demotions, etc.)
+
+## Agent Mail (Coordination)
+
+Agents communicate through a simple message queue. No external dependencies—runs as part of docker-compose.
+
+**Message Types:**
+
+| From | To | Type | Purpose |
+|------|----|------|---------|
+| Gatekeeper | Librarian | `memory_inserted` | Trigger link discovery |
+| Gatekeeper | Trainer | `counter_incremented` | Check if training needed |
+| Trainer | Janitor | `model_promoted` | Trigger full rescore |
+| Janitor | All | `maintenance_complete` | Summary statistics |
+| External | Gatekeeper | `remember` | Store memory request |
+| External | Librarian | `recall` | Search request |
+| Any | Librarian | `feedback` | Mark helpful/not helpful |
+
+**API:**
+```
+POST /register     - Agent joins the system
+POST /send         - Send to specific agent
+POST /broadcast    - Send to all agents
+GET  /messages     - Poll for messages
+GET  /health       - Health check
+```
+
+## Database Schema
+
+### memories
+```sql
+id              UUID PRIMARY KEY
+content         TEXT NOT NULL
+embedding       vector(768)
+category        VARCHAR(50)  -- decision, bug_fix, pattern, outcome, insight, code_snippet, documentation, other
+tags            TEXT[]
+source          VARCHAR(100) -- human, agent, system
+project         VARCHAR(100)
+predicted_quality FLOAT      -- 0-1, from XGBoost
+usefulness_score  FLOAT      -- 0-1, rolling average from feedback
+tier            ENUM         -- core, active, archive, quarantine
+access_count    INTEGER
+extra_data      JSONB
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
+```
+
+### memory_links
+```sql
+id              UUID PRIMARY KEY
+source_id       UUID REFERENCES memories
+target_id       UUID REFERENCES memories
+relationship    VARCHAR(50)  -- supports, contradicts, extends, caused_by, related
+strength        FLOAT        -- 0-1
+created_at      TIMESTAMP
+```
+
+### memory_events
+```sql
+id              UUID PRIMARY KEY
+memory_id       UUID REFERENCES memories
+event_type      VARCHAR(50)  -- retrieved, helpful, not_helpful, stale
+context         JSONB
+created_at      TIMESTAMP
+```
+
+### training_state
+```sql
+id                      INTEGER PRIMARY KEY
+memories_since_last_train INTEGER
+current_model_version   INTEGER
+last_train_at           TIMESTAMP
+```
+
+### models
+```sql
+id              UUID PRIMARY KEY
+version         INTEGER
+metrics         JSONB        -- accuracy, precision, recall, f1, auc
+model_blob      BYTEA        -- pickled XGBoost model
+feature_importance JSONB
+is_active       BOOLEAN
+created_at      TIMESTAMP
+```
+
+### concepts
+```sql
+id              UUID PRIMARY KEY
+name            VARCHAR(200)
+description     TEXT
+centroid        vector(768)  -- average embedding of member memories
+memory_count    INTEGER
+created_at      TIMESTAMP
+```
+
+**Indexes:**
+```sql
+-- Vector similarity search (IVFFlat for performance)
+CREATE INDEX ON memories USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- Common queries
+CREATE INDEX ON memories (tier);
+CREATE INDEX ON memories (project);
+CREATE INDEX ON memories USING gin (tags);
+CREATE INDEX ON memory_events (memory_id, event_type);
+```
+
+## Embedding Model
+
+**Model:** nomic-embed-text via Ollama
+**Dimensions:** 768
+**Why this model:**
+- Runs locally (no API costs)
+- Good performance on retrieval benchmarks
+- Small enough for CPU inference
+- Apache 2.0 license
+
+**Embedding Flow:**
+1. Request hits Gatekeeper/Librarian
+2. Call Ollama at `http://ollama:11434/api/embeddings`
+3. Receive 768-dim float array
+4. Store/compare using pgvector
+
+## Quality Model Features
+
+Features extracted for XGBoost:
+
+| Feature | Type | Description |
+|---------|------|-------------|
+| `length` | int | Character count |
+| `word_count` | int | Word count |
+| `unique_ratio` | float | Unique words / total words |
+| `has_numbers` | bool | Contains digits |
+| `has_code` | bool | Contains code markers (```, indentation) |
+| `has_reasoning` | bool | Contains "because", "therefore", "since", etc. |
+| `source_trust` | float | human=1.0, agent=0.7, unknown=0.5 |
+| `embedding_mean` | float | Mean of embedding vector |
+| `embedding_std` | float | Std dev of embedding vector |
+
+## Configuration Reference
 
 ```bash
 # Database
-POSTGRES_URL=postgresql+asyncpg://postgres:ragbrain@localhost:5433/workbench
+POSTGRES_URL=postgresql+asyncpg://postgres:ragbrain@postgres:5432/workbench
 
-# Ollama
-OLLAMA_URL=http://localhost:11434
+# Embeddings
+OLLAMA_URL=http://ollama:11434
 EMBEDDING_MODEL=nomic-embed-text
 
-# Training
-TRAINING_THRESHOLD=500        # Memories between retraining
-MIN_QUALITY_THRESHOLD=0.3     # Minimum quality to accept
+# Quality gating
+MIN_QUALITY_THRESHOLD=0.3      # Reject below this
+DUPLICATE_SIMILARITY_THRESHOLD=0.95
 
-# Ranking weights
+# Training
+TRAINING_THRESHOLD=500         # Memories between retraining
+
+# Ranking weights (must sum to 1.0)
 SIMILARITY_WEIGHT=0.4
 QUALITY_WEIGHT=0.25
 USEFULNESS_WEIGHT=0.25
 RECENCY_WEIGHT=0.1
 
-# Duplicate detection
-DUPLICATE_SIMILARITY_THRESHOLD=0.95
+# Tier thresholds
+CORE_QUALITY_THRESHOLD=0.8
+CORE_USEFULNESS_THRESHOLD=0.6
+CORE_ACCESS_THRESHOLD=3
+QUARANTINE_QUALITY_THRESHOLD=0.3
+QUARANTINE_USEFULNESS_THRESHOLD=0.3
+ARCHIVE_DAYS=90
 ```
 
 ## Project Structure
@@ -216,44 +387,63 @@ DUPLICATE_SIMILARITY_THRESHOLD=0.95
 ```
 rag-brain/
 ├── src/
-│   ├── gatekeeper/      # Write path agent
-│   ├── librarian/       # Read path agent
-│   ├── trainer/         # ML training agent
-│   ├── janitor/         # Maintenance agent
-│   ├── shared/          # Common utilities
-│   │   ├── config.py    # Settings management
-│   │   ├── database.py  # SQLAlchemy models
-│   │   ├── embeddings.py# Ollama integration
-│   │   └── features.py  # Feature extraction
-│   └── mcp_server.py    # MCP protocol server for Claude Code
+│   ├── gatekeeper/
+│   │   └── agent.py          # Write path, quality gating
+│   ├── librarian/
+│   │   └── agent.py          # Read path, ranking, linking
+│   ├── trainer/
+│   │   └── agent.py          # XGBoost training lifecycle
+│   ├── janitor/
+│   │   └── agent.py          # Rescoring, tier management
+│   ├── agent_mail_server/
+│   │   └── server.py         # Inter-agent message routing
+│   ├── shared/
+│   │   ├── config.py         # Pydantic settings
+│   │   ├── database.py       # SQLAlchemy models
+│   │   ├── embeddings.py     # Ollama client
+│   │   ├── features.py       # Feature extraction
+│   │   └── agent_mail.py     # Agent Mail client
+│   └── mcp_server.py         # MCP protocol for Claude Code
 ├── mcp_rest/
-│   └── server.py        # FastAPI REST server
+│   └── server.py             # FastAPI REST server
 ├── migrations/
 │   └── 001_initial_schema.sql
 ├── tests/
+│   ├── conftest.py
 │   └── test_integration.py
 ├── docker-compose.yml
 ├── Dockerfile
-└── requirements.txt
+├── requirements.txt
+├── .env
+├── CLAUDE.md                 # Instructions for Claude Code
+└── README.md
 ```
 
-## The Learning Loop
+## The Learning Curve
 
-1. **Month 1**: System accepts most inputs, learns from mistakes
-2. **Month 3**: Quality gate has learned your patterns, auto-rejects low-quality inputs
-3. **Month 6**: System knows trusted sources, understands that context matters
-4. **Year 1**: A second brain that understands your work style
+**Week 1-2:** System accepts most inputs. Quality model uses baseline heuristics. You're building training data.
 
-## Memory Categories
+**Month 1:** First few training cycles complete. Model starts recognizing patterns in what you mark as helpful.
 
-- `decision` - Architectural or design decisions
-- `bug_fix` - Bug fixes and their solutions
-- `pattern` - Code patterns and best practices
-- `outcome` - Results of experiments or changes
-- `insight` - Learnings and realizations
-- `code_snippet` - Reusable code examples
-- `documentation` - Documentation notes
-- `other` - Everything else
+**Month 3:** Gate rejects vague or low-value inputs automatically. Retrieval consistently returns useful results.
+
+**Month 6:** System has learned your style. Knows that your manual inputs are trustworthy, that code with context beats naked snippets, that certain agents produce better memories than others.
+
+**Year 1:** A second brain that genuinely understands your work.
+
+## Troubleshooting
+
+**Ollama slow to start:**
+First run downloads ~1GB model. Check: `docker-compose logs -f ollama`
+
+**Memories rejected unexpectedly:**
+Quality threshold might be too high. Check `/stats` endpoint, lower `MIN_QUALITY_THRESHOLD` if needed.
+
+**No results from recall:**
+Memories might be quarantined. Check `/stats` for tier counts. Review quarantine threshold.
+
+**Agents not starting:**
+Check Agent Mail is healthy: `curl http://localhost:8765/health`
 
 ## License
 
