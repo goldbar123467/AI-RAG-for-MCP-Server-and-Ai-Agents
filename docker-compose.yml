@@ -118,7 +118,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: rag-brain-mcp
-    command: python -m mcp.server
+    command: python -m mcp_rest.server
     ports:
       - "8000:8000"
     environment:
