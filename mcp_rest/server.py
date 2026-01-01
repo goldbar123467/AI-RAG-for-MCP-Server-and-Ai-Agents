@@ -15,6 +15,7 @@ from typing import Optional, List, Dict, Any
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update, func
 
@@ -29,6 +30,15 @@ app = FastAPI(
     title="RAG Brain MCP Server",
     description="Self-improving memory system API",
     version="1.0.0",
+)
+
+# Enable CORS for browser access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Agent Mail client for routing to agents

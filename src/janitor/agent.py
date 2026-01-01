@@ -372,9 +372,9 @@ class JanitorAgent:
             )
 
             for memory in result.scalars():
-                # Mark for deletion in metadata (actual deletion requires approval)
-                memory.metadata = {
-                    **memory.metadata,
+                # Mark for deletion in extra_data (actual deletion requires approval)
+                memory.extra_data = {
+                    **memory.extra_data,
                     "flagged_for_deletion": True,
                     "flagged_at": datetime.utcnow().isoformat(),
                     "reason": "Quarantined for 30+ days with no improvement",
