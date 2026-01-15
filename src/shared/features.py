@@ -1,9 +1,43 @@
 """Feature extraction for XGBoost quality prediction."""
 
+import logging
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from dataclasses import dataclass
 import numpy as np
+
+
+logger = logging.getLogger(__name__)
+
+
+def parse_pgvector_string(s: str) -> List[float]:
+    """
+    Parse pgvector string representation to list of floats.
+
+    pgvector returns embeddings as strings like "[0.123, 0.456, ...]" when
+    accessed via raw SQL queries. This function parses that back to a list.
+
+    Args:
+        s: String representation from pgvector, e.g. "[0.1, 0.2, 0.3]"
+
+    Returns:
+        List of floats
+
+    Raises:
+        ValueError: If the string cannot be parsed as a valid vector
+    """
+    if not s:
+        raise ValueError("Empty string cannot be parsed as pgvector")
+    s = s.strip()
+    if not (s.startswith('[') and s.endswith(']')):
+        raise ValueError(f"Invalid pgvector format: {s[:50]}...")
+    inner = s[1:-1].strip()
+    if not inner:
+        return []
+    try:
+        return [float(x.strip()) for x in inner.split(',')]
+    except ValueError as e:
+        raise ValueError(f"Failed to parse pgvector elements: {e}") from e
 
 
 # Reasoning words that indicate higher quality memories
@@ -114,7 +148,7 @@ class Features:
 def extract_features(
     content: str,
     source: Optional[str] = None,
-    embedding: Optional[List[float]] = None,
+    embedding: Optional[Union[List[float], str]] = None,
 ) -> Features:
     """
     Extract features from memory content for quality prediction.
@@ -166,11 +200,20 @@ def extract_features(
     embedding_max = None
 
     if embedding:
-        emb_array = np.array(embedding)
-        embedding_mean = float(np.mean(emb_array))
-        embedding_std = float(np.std(emb_array))
-        embedding_min = float(np.min(emb_array))
-        embedding_max = float(np.max(emb_array))
+        # Handle pgvector string format from raw SQL queries
+        if isinstance(embedding, str):
+            try:
+                embedding = parse_pgvector_string(embedding)
+            except ValueError as e:
+                logger.warning(f"Failed to parse embedding: {e}")
+                embedding = None
+
+        if embedding:
+            emb_array = np.array(embedding)
+            embedding_mean = float(np.mean(emb_array))
+            embedding_std = float(np.std(emb_array))
+            embedding_min = float(np.min(emb_array))
+            embedding_max = float(np.max(emb_array))
 
     return Features(
         length=length,
